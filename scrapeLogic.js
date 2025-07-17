@@ -38,7 +38,7 @@ const scrapeLogic = async (res, url) => {
       // 'domcontentloaded' is a better event to wait for. It fires when the initial
       // HTML document has been completely loaded and parsed, without waiting for
       // stylesheets, images, and subframes to finish loading.
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
     } catch (error) {
       // Even with optimizations, some pages might be slow.
       if (error.name === 'TimeoutError') {
