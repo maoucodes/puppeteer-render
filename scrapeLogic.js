@@ -1,5 +1,8 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 require("dotenv").config();
+
+puppeteer.use(StealthPlugin());
 
 const scrapeLogic = async (res, url) => {
   const browser = await puppeteer.launch({
@@ -29,17 +32,17 @@ const scrapeLogic = async (res, url) => {
       "Accept-Language": "en-US,en;q=0.9",
     });
 
-    // Go to the page and let the AWS WAF challenge run
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    console.log("Opening page, waiting for AWS WAF challenge...");
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-    // Wait for the challenge container to disappear
+    // Wait until challenge container disappears or the real page's body loads
     await page.waitForFunction(
-      () => !document.querySelector("#challenge-container"),
-      { timeout: 15000 }
+      () => !document.querySelector("#challenge-container") && document.body.innerText.length > 50,
+      { timeout: 30000 }
     );
 
-    // Now page should have reloaded after challenge
-    await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 15000 });
+    // Extra delay to ensure scripts finish running
+    await page.waitForTimeout(2000);
 
     const html = await page.content();
     res.setHeader("Content-Type", "text/html; charset=utf-8");
