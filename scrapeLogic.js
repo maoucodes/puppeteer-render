@@ -19,42 +19,27 @@ const scrapeLogic = async (res, url) => {
   try {
     const page = await browser.newPage();
 
-    // Use a realistic user agent
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
       "AppleWebKit/537.36 (KHTML, like Gecko) " +
       "Chrome/115.0.0.0 Safari/537.36"
     );
 
-    // Common browser headers
     await page.setExtraHTTPHeaders({
       "Accept-Language": "en-US,en;q=0.9",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Upgrade-Insecure-Requests": "1",
     });
 
-    // Set a default navigation timeout
-    page.setDefaultNavigationTimeout(30000); 
+    // Go to the page and let the AWS WAF challenge run
+    await page.goto(url, { waitUntil: "domcontentloaded" });
 
-    // Block unnecessary resources
-    await page.setRequestInterception(true);
-    page.on("request", (req) => {
-      if (["image", "stylesheet", "font", "media"].includes(req.resourceType())) {
-        req.abort();
-      } else {
-        req.continue();
-      }
-    });
+    // Wait for the challenge container to disappear
+    await page.waitForFunction(
+      () => !document.querySelector("#challenge-container"),
+      { timeout: 15000 }
+    );
 
-    try {
-      await page.goto(url, { waitUntil: "networkidle2", timeout: 20000 });
-    } catch (error) {
-      if (error.name === "TimeoutError") {
-        console.log(`Navigation timed out for ${url}, returning partial HTML.`);
-      } else {
-        throw error;
-      }
-    }
+    // Now page should have reloaded after challenge
+    await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 15000 });
 
     const html = await page.content();
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -62,7 +47,7 @@ const scrapeLogic = async (res, url) => {
 
   } catch (e) {
     console.error(e);
-    res.status(500).send(`Something went wrong while running Puppeteer: ${e.message}`);
+    res.status(500).send(`Error: ${e.message}`);
   } finally {
     await browser.close();
   }
