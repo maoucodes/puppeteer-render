@@ -1,8 +1,5 @@
-const puppeteer = require("puppeteer-extra");
-const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const puppeteer = require("puppeteer");
 require("dotenv").config();
-
-puppeteer.use(StealthPlugin());
 
 const scrapeLogic = async (res, url) => {
   const browser = await puppeteer.launch({
@@ -32,18 +29,19 @@ const scrapeLogic = async (res, url) => {
       "Accept-Language": "en-US,en;q=0.9",
     });
 
-    console.log("Opening page, waiting for AWS WAF challenge...");
+    // Go to the page (start challenge)
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-    // Wait until challenge container disappears or the real page's body loads
+    // Wait for challenge container to disappear OR timeout
     await page.waitForFunction(
-      () => !document.querySelector("#challenge-container") && document.body.innerText.length > 50,
-      { timeout: 30000 }
-    );
+      () => !document.querySelector("#challenge-container"),
+      { timeout: 20000 }
+    ).catch(() => console.log("Challenge container still present, continuing anyway"));
 
-    // Extra delay to ensure scripts finish running
-    await page.waitForTimeout(2000);
+    // Give AWS WAF some extra time to reload the real page
+    await page.waitForTimeout(5000);
 
+    // Now get the HTML (real page or partially loaded)
     const html = await page.content();
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
